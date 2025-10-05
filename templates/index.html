@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Generador de CURP - Análisis Sintáctico</title>
+
+    <style>
+        :root {
+            --primary: #621132;
+            --primary-dark: #4a0d25;
+            --primary-light: #7a1640;
+            --success: #059669;
+            --error: #dc2626;
+            --warning: #d97706;
+            --gold: #c9a961;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #621132 0%, #4a0d25 100%);
+            min-height: 100vh;
+            padding: 2rem 1rem;
+        }
+        .escudo-container {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .escudoNacio {
+            width: 120px;
+            height: auto;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5));
+            animation: fadeIn 0.8s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .container { max-width: 900px; margin: 0 auto; }
+        .header {
+            background: white;
+            padding: 2rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+        .header h1 { color: var(--primary); font-size: 2rem; margin-bottom: 0.5rem; }
+        .header p { color: #64748b; font-size: 1.1rem; }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 1rem;
+            margin-top: 1.5rem;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #621132 0%, #7a1640 100%);
+            color: white;
+            padding: 1.5rem;
+            border-radius: 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            border: 2px solid rgba(201, 169, 97, 0.3);
+        }
+        .stat-card:hover { 
+            transform: translateY(-5px); 
+            box-shadow: 0 15px 35px rgba(98, 17, 50, 0.5);
+            border-color: var(--gold);
+        }
+        .stat-value { font-size: 2rem; font-weight: 700; }
+        .stat-label { font-size: 0.9rem; opacity: 0.9; margin-top: 0.5rem; }
+        .card {
+            background: white;
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            margin-bottom: 2rem;
+        }
+        .card h2 { 
+            color: var(--primary); 
+            margin-bottom: 2rem; 
+            font-size: 1.5rem; 
+            border-bottom: 3px solid var(--primary); 
+            padding-bottom: 0.5rem; 
+        }
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 2rem;
+        }
+        .card-header h2 {
+            margin: 0;
+            border: none;
+            padding: 0;
+        }
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .form-group { position: relative; }
+        .form-group label {
+            display: block;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+            color: #1e293b;
+        }
+        .required { color: var(--error); }
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 0.875rem;
+            border: 2px solid #cbd5e1;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 0 3px rgba(98, 17, 50, 0.1);
+        }
+        .form-group input.error { border-color: var(--error); background: #fef2f2; }
+        .form-group input.success { border-color: var(--success); background: #f0fdf4; }
+        .form-group input.warning { border-color: var(--warning); background: #fffbeb; }
+        .field-feedback {
+            font-size: 0.875rem;
+            margin-top: 0.5rem;
+            min-height: 20px;
+            font-weight: 500;
+        }
+        .field-feedback.error { color: var(--error); }
+        .field-feedback.success { color: var(--success); }
+        .field-feedback.warning { color: var(--warning); }
+        .sugerencias {
+            background: #fffbeb;
+            border: 1px solid #fbbf24;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+        }
+        .sugerencias h4 { color: #92400e; font-size: 0.9rem; margin-bottom: 0.5rem; }
+        .sugerencia-item {
+            background: white;
+            padding: 0.5rem 1rem;
+            margin: 0.5rem 0;
+            border-radius: 6px;
+            cursor: pointer;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: all 0.2s;
+        }
+        .sugerencia-item:hover { background: #fef3c7; transform: translateX(5px); }
+        .similitud {
+            background: #f59e0b;
+            color: white;
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        .btn {
+            padding: 1rem 2rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: center;
+            display: inline-block;
+        }
+        .btn-primary {
+            background: linear-gradient(135deg, #621132 0%, #7a1640 100%);
+            color: white;
+            border: 2px solid rgba(201, 169, 97, 0.3);
+        }
+        .btn-primary:hover { 
+            transform: translateY(-2px); 
+            box-shadow: 0 10px 20px rgba(98, 17, 50, 0.4);
+            border-color: var(--gold);
+        }
+        .btn-secondary {
+            background: white;
+            color: var(--primary);
+            border: 2px solid var(--primary);
+        }
+        .btn-secondary:hover {
+            background: #f8fafc;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(98, 17, 50, 0.2);
+        }
+        .btn-danger {
+            background: var(--error);
+            color: white;
+            padding: 0.75rem 1.5rem;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+            transform: translateY(-2px);
+        }
+        .btn-block { width: 100%; }
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            margin-bottom: 2rem;
+        }
+        .alert {
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin: 1.5rem 0;
+            border-left: 4px solid;
+        }
+        .alert-success { background: #d1fae5; border-color: var(--success); color: #065f46; }
+        .alert-error { background: #fee2e2; border-color: var(--error); color: #991b1b; }
+        .result-curp {
+            background: linear-gradient(135deg, #621132 0%, #7a1640 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            text-align: center;
+            font-size: 2rem;
+            font-weight: 700;
+            letter-spacing: 4px;
+            font-family: 'Courier New', monospace;
+            margin: 2rem 0;
+            box-shadow: 0 10px 30px rgba(98, 17, 50, 0.5);
+            border: 2px solid rgba(201, 169, 97, 0.3);
+        }
+        .detalles {
+            background: #f8fafc;
+            padding: 1.5rem;
+            border-radius: 8px;
+            margin-top: 1.5rem;
+        }
+        .detalles h4 { color: var(--primary); margin-bottom: 1rem; }
+        .detalle-item {
+            padding: 0.75rem;
+            background: white;
+            border-radius: 6px;
+            margin-bottom: 0.5rem;
+            border-left: 3px solid var(--success);
+        }
+        .cache-item {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 1rem;
+            align-items: center;
+            transition: all 0.3s;
+        }
+        .cache-item:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(98, 17, 50, 0.2);
+            transform: translateX(5px);
+        }
+        .cache-curp {
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            font-weight: 700;
+            color: var(--primary);
+            letter-spacing: 2px;
+        }
+        .cache-info {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-top: 0.5rem;
+        }
+        .btn-delete {
+            background: var(--error);
+            color: white;
+            padding: 0.75rem 1.25rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            font-weight: 600;
+            transition: all 0.3s;
+        }
+        .btn-delete:hover {
+            background: #b91c1c;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(220, 38, 38, 0.3);
+        }
+        .empty-cache {
+            text-align: center;
+            padding: 3rem;
+            color: #94a3b8;
+            font-size: 1.1rem;
+        }
+        .loading {
+            text-align: center;
+            padding: 2rem;
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .loading::after { content: '...'; animation: dots 1.5s steps(4, end) infinite; }
+        @keyframes dots { 0%, 20% { content: '.'; } 40% { content: '..'; } 60%, 100% { content: '...'; } }
+        @media (max-width: 768px) {
+            .form-grid { grid-template-columns: 1fr; }
+            .stats { grid-template-columns: 1fr; }
+            .result-curp { font-size: 1.25rem; letter-spacing: 2px; }
+            .cache-item { grid-template-columns: 1fr; }
+            .escudoNacio { width: 100px; }
+            .btn-group { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <div class="escudo-container">
+        <img src="{{ url_for('static', filename='img/escudoNacio.png') }}" alt="Escudo de México" class="escudoNacio">
+    </div>
+    <div class="container">
+        <div class="header">
+            <h1>Sistema Generador de CURP</h1>
+           <h3><p>SINTACTICO</p></h3> 
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-value" id="totalValidaciones">0</div>
+                    <div class="stat-label">Validaciones</div>
+                </div>
+                <div class="stat-card" onclick="toggleCache()">
+                    <div class="stat-value" id="curpsCache">0</div>
+                    <div class="stat-label">CURPs en Caché (Click para ver)</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Panel de Caché (oculto por defecto) -->
+        <div id="cachePanel" style="display: none;">
+            <div class="card">
+                <div class="card-header">
+                    <h2>Caché de CURPs Generadas</h2>
+                    <button class="btn btn-danger" onclick="limpiarCache()">
+                        Limpiar Todo
+                    </button>
+                </div>
+                <div id="listaCurps"></div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>Generar CURP</h2>
+            
+            <div class="form-grid">
+                <div class="form-group">
+                    <label>Apellido Paterno <span class="required">*</span></label>
+                    <input type="text" id="apellidoPaterno" placeholder="García">
+                    <div class="field-feedback" id="feedbackApellidoPaterno"></div>
+                    <div id="sugerenciasApellidoPaterno"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Apellido Materno <span class="required">*</span></label>
+                    <input type="text" id="apellidoMaterno" placeholder="López">
+                    <div class="field-feedback" id="feedbackApellidoMaterno"></div>
+                    <div id="sugerenciasApellidoMaterno"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Nombre(s) <span class="required">*</span></label>
+                    <input type="text" id="nombre" placeholder="Juan Carlos">
+                    <div class="field-feedback" id="feedbackNombre"></div>
+                    <div id="sugerenciasNombre"></div>
+                </div>
+
+                <div class="form-group">
+                    <label>Fecha de Nacimiento <span class="required">*</span></label>
+                    <input type="date" id="fechaNacimiento">
+                </div>
+
+                <div class="form-group">
+                    <label>Sexo <span class="required">*</span></label>
+                    <select id="sexo">
+                        <option value="H">Hombre</option>
+                        <option value="M">Mujer</option>
+                        <option value="X">No binario</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Estado de Nacimiento <span class="required">*</span></label>
+                    <select id="estado">
+                        <option value="">Selecciona...</option>
+                        <option value="AS">Aguascalientes</option>
+                        <option value="BC">Baja California</option>
+                        <option value="BS">Baja California Sur</option>
+                        <option value="CC">Campeche</option>
+                        <option value="CL">Coahuila</option>
+                        <option value="CM">Colima</option>
+                        <option value="CS">Chiapas</option>
+                        <option value="CH">Chihuahua</option>
+                        <option value="DF">Ciudad de México</option>
+                        <option value="DG">Durango</option>
+                        <option value="GT">Guanajuato</option>
+                        <option value="GR">Guerrero</option>
+                        <option value="HG">Hidalgo</option>
+                        <option value="JC">Jalisco</option>
+                        <option value="MC">México</option>
+                        <option value="MN">Michoacán</option>
+                        <option value="MS">Morelos</option>
+                        <option value="NT">Nayarit</option>
+                        <option value="NL">Nuevo León</option>
+                        <option value="OC">Oaxaca</option>
+                        <option value="PL">Puebla</option>
+                        <option value="QT">Querétaro</option>
+                        <option value="QR">Quintana Roo</option>
+                        <option value="SP">San Luis Potosí</option>
+                        <option value="SL">Sinaloa</option>
+                        <option value="SR">Sonora</option>
+                        <option value="TC">Tabasco</option>
+                        <option value="TS">Tamaulipas</option>
+                        <option value="TL">Tlaxcala</option>
+                        <option value="VZ">Veracruz</option>
+                        <option value="YN">Yucatán</option>
+                        <option value="ZS">Zacatecas</option>
+                        <option value="NE">Nacido en el Extranjero</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn btn-primary" onclick="generarCURP()">
+                    Generar CURP
+                </button>
+                <button class="btn btn-secondary" onclick="limpiarFormulario()">
+                    Nueva CURP
+                </button>
+            </div>
+
+            <div id="resultado"></div>
+        </div>
+    </div>
+
+    <script>
+        let validacionesRealizadas = {};
+
+        function limpiarFormulario() {
+            // Limpiar campos de texto
+            document.getElementById('apellidoPaterno').value = '';
+            document.getElementById('apellidoMaterno').value = '';
+            document.getElementById('nombre').value = '';
+            document.getElementById('fechaNacimiento').value = '';
+            document.getElementById('estado').value = '';
+            document.getElementById('sexo').value = 'H';
+
+            // Limpiar clases de validación
+            ['apellidoPaterno', 'apellidoMaterno', 'nombre'].forEach(campo => {
+                const input = document.getElementById(campo);
+                input.className = '';
+                const feedback = document.getElementById(`feedback${campo.charAt(0).toUpperCase() + campo.slice(1)}`);
+                feedback.textContent = '';
+                feedback.className = 'field-feedback';
+                const sugerencias = document.getElementById(`sugerencias${campo.charAt(0).toUpperCase() + campo.slice(1)}`);
+                sugerencias.innerHTML = '';
+            });
+
+            // Limpiar resultado
+            document.getElementById('resultado').innerHTML = '';
+
+            // Resetear validaciones
+            validacionesRealizadas = {};
+
+            // Hacer scroll al inicio del formulario
+            document.querySelector('.card h2').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+
+        function validarCampo(campoId, tipo) {
+            const input = document.getElementById(campoId);
+            const feedback = document.getElementById(`feedback${campoId.charAt(0).toUpperCase() + campoId.slice(1)}`);
+            const sugerenciasDiv = document.getElementById(`sugerencias${campoId.charAt(0).toUpperCase() + campoId.slice(1)}`);
+            const valor = input.value.trim();
+
+            if (!valor) {
+                input.className = '';
+                feedback.textContent = '';
+                feedback.className = 'field-feedback';
+                sugerenciasDiv.innerHTML = '';
+                validacionesRealizadas[campoId] = false;
+                return;
+            }
+
+            fetch('/validar-campo', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ texto: valor, tipo: tipo })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.valido) {
+                    input.classList.remove('error', 'warning');
+                    input.classList.add('success');
+                    feedback.textContent = '✓ ' + data.mensaje;
+                    feedback.className = 'field-feedback success';
+                    sugerenciasDiv.innerHTML = '';
+                    validacionesRealizadas[campoId] = true;
+                } else {
+                    if (data.tipo_error === 'sintactico') {
+                        input.classList.remove('success', 'warning');
+                        input.classList.add('error');
+                        feedback.textContent = '✗ ' + data.mensaje;
+                        feedback.className = 'field-feedback error';
+                        sugerenciasDiv.innerHTML = '';
+                        validacionesRealizadas[campoId] = false;
+                    } else if (data.tipo_error === 'ortografico') {
+                        input.classList.remove('success', 'error');
+                        input.classList.add('warning');
+                        feedback.textContent = '⚠ ' + data.mensaje;
+                        feedback.className = 'field-feedback warning';
+                        
+                        if (data.sugerencias && data.sugerencias.length > 0) {
+                            let html = '<div class="sugerencias"><h4>Sugerencias:</h4>';
+                            data.sugerencias.forEach(sug => {
+                                html += `<div class="sugerencia-item" onclick="aplicarSugerencia('${campoId}', '${sug.palabra}')">
+                                    <span>${sug.palabra}</span>
+                                    <span class="similitud">${sug.similitud}%</span>
+                                </div>`;
+                            });
+                            html += '</div>';
+                            sugerenciasDiv.innerHTML = html;
+                        }
+                        validacionesRealizadas[campoId] = false;
+                    } else {
+                        input.classList.remove('success');
+                        input.classList.add('error');
+                        feedback.textContent = '✗ ' + data.mensaje;
+                        feedback.className = 'field-feedback error';
+                        sugerenciasDiv.innerHTML = '';
+                        validacionesRealizadas[campoId] = false;
+                    }
+                }
+            });
+        }
+
+        function aplicarSugerencia(campoId, valor) {
+            document.getElementById(campoId).value = valor;
+            const tipo = campoId === 'nombre' ? 'nombre' : 
+                        campoId === 'apellidoPaterno' ? 'apellido_paterno' : 'apellido_materno';
+            validarCampo(campoId, tipo);
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            document.getElementById('apellidoPaterno').addEventListener('blur', () => 
+                validarCampo('apellidoPaterno', 'apellido_paterno'));
+            document.getElementById('apellidoMaterno').addEventListener('blur', () => 
+                validarCampo('apellidoMaterno', 'apellido_materno'));
+            document.getElementById('nombre').addEventListener('blur', () => 
+                validarCampo('nombre', 'nombre'));
+        });
+
+        async function generarCURP() {
+            const resultDiv = document.getElementById('resultado');
+            
+            const apellidoPaterno = document.getElementById('apellidoPaterno').value.trim();
+            const apellidoMaterno = document.getElementById('apellidoMaterno').value.trim();
+            const nombre = document.getElementById('nombre').value.trim();
+            const fechaNacimiento = document.getElementById('fechaNacimiento').value;
+            const estado = document.getElementById('estado').value;
+
+            if (!apellidoPaterno || !apellidoMaterno || !nombre || !fechaNacimiento || !estado) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Por favor completa todos los campos</div>';
+                return;
+            }
+
+            if (!validacionesRealizadas['apellidoPaterno'] || 
+                !validacionesRealizadas['apellidoMaterno'] || 
+                !validacionesRealizadas['nombre']) {
+                resultDiv.innerHTML = '<div class="alert alert-error">Corrige los errores antes de generar la CURP</div>';
+                return;
+            }
+
+            resultDiv.innerHTML = '<div class="loading">Generando CURP con análisis sintáctico</div>';
+
+            const [year, month, day] = fechaNacimiento.split('-');
+            const fechaFormateada = `${day}/${month}/${year}`;
+
+            const datos = {
+                apellido_paterno: apellidoPaterno,
+                apellido_materno: apellidoMaterno,
+                nombre: nombre,
+                fecha_nacimiento: fechaFormateada,
+                sexo: document.getElementById('sexo').value,
+                estado: estado
+            };
+
+            try {
+                const res = await fetch('/generar-curp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(datos)
+                });
+
+                const data = await res.json();
+
+                if (data.success) {
+                    actualizarEstadisticas();
+                    
+                    let html = '<div class="alert alert-success">CURP generada exitosamente</div>';
+                    html += `<div class="result-curp">${data.curp}</div>`;
+                    
+                    if (data.validacion.detalles && data.validacion.detalles.length > 0) {
+                        html += '<div class="detalles"><h4>Detalles de Validación:</h4>';
+                        data.validacion.detalles.forEach(detalle => {
+                            html += `<div class="detalle-item">${detalle}</div>`;
+                        });
+                        html += '</div>';
+                    }
+
+                    resultDiv.innerHTML = html;
+                } else {
+                    resultDiv.innerHTML = `<div class="alert alert-error">Error: ${data.error}</div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="alert alert-error">Error de conexión: ${error.message}</div>`;
+            }
+        }
+
+        async function actualizarEstadisticas() {
+            try {
+                const res = await fetch('/estadisticas');
+                const data = await res.json();
+                document.getElementById('totalValidaciones').textContent = data.total_validaciones;
+                document.getElementById('curpsCache').textContent = data.curps_en_cache;
+            } catch (error) {
+                console.error('Error al actualizar estadísticas:', error);
+            }
+        }
+
+        async function toggleCache() {
+            const panel = document.getElementById('cachePanel');
+            if (panel.style.display === 'none') {
+                panel.style.display = 'block';
+                await cargarCurpsCache();
+                panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            } else {
+                panel.style.display = 'none';
+            }
+        }
+
+        async function cargarCurpsCache() {
+            const listaCurps = document.getElementById('listaCurps');
+            listaCurps.innerHTML = '<div class="loading">Cargando CURPs del caché</div>';
+
+            try {
+                const res = await fetch('/estadisticas');
+                const data = await res.json();
+
+                if (data.curps_cache && data.curps_cache.length > 0) {
+                    let html = '';
+                    data.curps_cache.forEach((curp, index) => {
+                        html += `
+                            <div class="cache-item" id="cache-${index}">
+                                <div>
+                                    <div class="cache-curp">${curp}</div>
+                                    <div class="cache-info">Almacenada en caché</div>
+                                </div>
+                                <button class="btn-delete" onclick="eliminarCurp('${curp}', ${index})">
+                                    Eliminar
+                                </button>
+                            </div>
+                        `;
+                    });
+                    listaCurps.innerHTML = html;
+                } else {
+                    listaCurps.innerHTML = '<div class="empty-cache">No hay CURPs almacenadas en caché</div>';
+                }
+            } catch (error) {
+                listaCurps.innerHTML = '<div class="alert alert-error">Error al cargar el caché</div>';
+                console.error('Error al cargar caché:', error);
+            }
+        }
+
+        async function eliminarCurp(curp, index) {
+            if (!confirm(`¿Eliminar la CURP ${curp} del caché?`)) {
+                return;
+            }
+
+            const item = document.getElementById(`cache-${index}`);
+            if (item) {
+                item.style.opacity = '0';
+                item.style.transform = 'translateX(-20px)';
+            }
+
+            setTimeout(async () => {
+                await limpiarCache();
+                await cargarCurpsCache();
+            }, 300);
+        }
+
+        async function limpiarCache() {
+            if (!confirm('¿Estás seguro de que quieres eliminar TODAS las CURPs del caché?')) {
+                return;
+            }
+
+            try {
+                const res = await fetch('/limpiar-cache', { method: 'POST' });
+                const data = await res.json();
+
+                if (data.success) {
+                    document.getElementById('listaCurps').innerHTML = 
+                        `<div class="alert alert-success">${data.mensaje}</div>`;
+                    await actualizarEsta
+                    await actualizarEstadisticas();
+                    
+                    setTimeout(async () => {
+                        await cargarCurpsCache();
+                    }, 1500);
+                }
+            } catch (error) {
+                document.getElementById('listaCurps').innerHTML = 
+                    '<div class="alert alert-error">Error al limpiar el caché</div>';
+                console.error('Error al limpiar caché:', error);
+            }
+        }
+
+        window.addEventListener('load', actualizarEstadisticas);
+    </script>
+</body>
+</html>
